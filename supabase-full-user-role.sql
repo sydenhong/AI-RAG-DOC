@@ -24,10 +24,14 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   updated_at timestamptz DEFAULT now() NOT NULL
 );
 
+-- Fix old profiles table if it already exists but does not have role
+ALTER TABLE public.profiles
+ADD COLUMN IF NOT EXISTS role text DEFAULT 'user'
+CHECK (role IN ('admin', 'user'));
+
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
 
--- Drop old policies first to prevent duplicate policy error
 DROP POLICY IF EXISTS "Public profiles are viewable by everyone." ON public.profiles;
 DROP POLICY IF EXISTS "Users can update own profile." ON public.profiles;
 DROP POLICY IF EXISTS "Admins can update all profiles." ON public.profiles;
@@ -145,6 +149,21 @@ CREATE TABLE IF NOT EXISTS public.doc_segments (
     char_length(content) <= 20000
   )
 );
+
+-- IMPORTANT FIX:
+-- If doc_segments table already exists, CREATE TABLE IF NOT EXISTS
+-- will NOT add missing columns. So add document_id manually.
+ALTER TABLE public.doc_segments
+ADD COLUMN IF NOT EXISTS document_id uuid;
+
+ALTER TABLE public.doc_segments
+DROP CONSTRAINT IF EXISTS doc_segments_document_id_fkey;
+
+ALTER TABLE public.doc_segments
+ADD CONSTRAINT doc_segments_document_id_fkey
+FOREIGN KEY (document_id)
+REFERENCES public.documents(id)
+ON DELETE CASCADE;
 
 ALTER TABLE public.doc_segments ENABLE ROW LEVEL SECURITY;
 
